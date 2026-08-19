@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Logging · pytest · CI/CD 하루 완성 · 6교시</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<style>
+:root{
+  --paper:#EBEAF1;
+  --surface:#FFFFFF;
+  --ink:#171526;
+  --muted:#666078;
+  --line:#CFCCDC;
+  --line-soft:#E6E4EE;
+  --t1:#3E3A8C;
+  --t2:#16724A;
+  --t3:#A03A78;
+  --accent:var(--t1);
+  --dbg:#7A8296;
+  --inf:#2E6FD9;
+  --wrn:#B07209;
+  --err:#C0392B;
+  --crt:#7A1F1A;
+  --pass:#16724A;
+  --fail:#C0392B;
+  --skip:#9A94AC;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{
+  font-family:var(--sans);color:var(--ink);background-color:var(--paper);
+  background-image:radial-gradient(circle,rgba(23,21,38,.075) 1px,transparent 1px);
+  background-size:22px 22px;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit}
+
+/* ── shell ───────────────────────────── */
+.deck{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.topbar{flex:none;background:rgba(235,234,241,.94);backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);padding:9px 18px 0}
+.brandline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.brand{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.02em}
+.brand em{font-style:normal;color:var(--muted);font-weight:400}
+.brand-sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em}
+.rail{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding-bottom:8px}
+.seg{appearance:none;border:1px solid var(--line);background:#fff;border-radius:4px;
+  text-align:left;cursor:pointer;padding:5px 7px;transition:.16s;overflow:hidden}
+.seg .n{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.1em;display:block}
+.seg .t{font-size:11.5px;font-weight:600;color:var(--muted);display:block;margin-top:1px;
+  white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.seg:hover{border-color:var(--segc)}
+.seg[data-on="1"]{background:var(--segc);border-color:var(--segc)}
+.seg[data-on="1"] .n{color:rgba(255,255,255,.7)}
+.seg[data-on="1"] .t{color:#fff;font-weight:700}
+.seg:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.pages{flex:1;position:relative;overflow:hidden}
+.page{position:absolute;inset:0;overflow-y:auto;padding:24px 18px 88px;display:none}
+.page.on{display:block;animation:fade .26s ease-out}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.wrap{max-width:1260px;margin:0 auto}
+
+.phead{margin-bottom:18px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+.phead h1{font-size:clamp(23px,3.3vw,34px);line-height:1.16;letter-spacing:-.035em;margin:5px 0 6px;font-weight:800}
+.phead p{margin:0;color:var(--muted);font-size:13.5px;max-width:64ch;line-height:1.6}
+
+.cols{display:grid;grid-template-columns:286px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:960px){.cols{grid-template-columns:1fr}}
+.brief{position:sticky;top:4px}
+@media (max-width:960px){.brief{position:static}}
+.brief h3{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted);
+  margin:0 0 9px;font-weight:700}
+.blist{list-style:none;margin:0 0 16px;padding:0;border-top:1px solid var(--line)}
+.blist li{border-bottom:1px solid var(--line-soft);padding:8px 0 8px 13px;font-size:13px;
+  line-height:1.5;position:relative;color:#2F2B40}
+.blist li::before{content:"";position:absolute;left:0;top:15px;width:5px;height:5px;
+  background:var(--accent);border-radius:1px}
+.blist li b{font-weight:700;color:var(--ink)}
+.cmd{font-family:var(--mono);font-size:11.5px;background:#F2F1F7;border:1px solid var(--line-soft);
+  border-radius:3px;padding:1px 5px;white-space:nowrap}
+.goal{border-left:3px solid var(--accent);padding:9px 0 9px 11px;font-size:12.5px;line-height:1.55;color:#2F2B40}
+.goal b{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.13em;color:var(--accent);margin-bottom:3px}
+
+/* ── panels ──────────────────────────── */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  box-shadow:0 1px 2px rgba(23,21,38,.05);margin-bottom:15px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 13px;border-bottom:1px solid var(--line-soft)}
+.panel-title{font-size:13px;font-weight:700}
+.panel-title span{font-family:var(--mono);font-size:9.5px;color:var(--accent);letter-spacing:.11em;
+  margin-right:7px;font-weight:700}
+.panel-note{font-size:11.5px;color:var(--muted)}
+.panel-body{padding:13px}
+
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.rowlab{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.09em;
+  width:100%;margin:8px 0 1px}
+.rowlab:first-child{margin-top:0}
+.btn{font-family:var(--mono);font-size:11.5px;padding:6px 10px;border-radius:4px;
+  border:1px solid var(--line);background:#FBFBFD;cursor:pointer;transition:.15s;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn:disabled{opacity:.34;cursor:not-allowed}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover:not(:disabled){filter:brightness(.88);background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.gho{background:transparent;border-style:dashed}
+.btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+select.sel{font-family:var(--mono);font-size:11px;padding:4px 6px;border:1px solid var(--line);
+  border-radius:4px;background:#fff;cursor:pointer}
+select.sel:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+/* 관측 창 — 이 덱의 서명 요소 */
+.obs{font-family:var(--mono);font-size:11px;padding:9px 13px;border-top:1px solid var(--line-soft);
+  background:#F6F5FA;color:#2F2B40;border-radius:0 0 5px 5px;line-height:1.65}
+.obs .ts{color:var(--muted)}
+.obs b{color:var(--accent)}
+.hint{font-size:12.5px;line-height:1.55;color:#2F2B40;margin-top:10px;padding:9px 11px;
+  border-radius:4px;background:#F4F3F9;border-left:3px solid var(--line)}
+.hint.good{border-left-color:var(--pass);background:rgba(22,114,74,.07)}
+.hint.bad{border-left-color:var(--fail);background:rgba(192,57,43,.07)}
+.hint.warn{border-left-color:var(--wrn);background:rgba(176,114,9,.09)}
+
+/* ── 공통 조각 ───────────────────────── */
+.term{font-family:var(--mono);font-size:11.5px;line-height:1.7;background:#1A1828;color:#D8D5E6;
+  border-radius:5px;padding:10px 12px;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.term .ok{color:#7BD6A2}.term .no{color:#F58E93}.term .dim{color:#8A84A0}
+.term .hi{color:#F0B84A}.term .lv{color:#8FB0F0}
+.lvl{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;color:#fff}
+.lvl.DEBUG{background:var(--dbg)}.lvl.INFO{background:var(--inf)}.lvl.WARNING{background:var(--wrn)}
+.lvl.ERROR{background:var(--err)}.lvl.CRITICAL{background:var(--crt)}
+.tag{font-family:var(--mono);font-size:9px;padding:1.5px 6px;border-radius:3px;letter-spacing:.03em}
+.tag.pass{background:rgba(22,114,74,.14);color:var(--pass)}
+.tag.fail{background:rgba(192,57,43,.14);color:var(--fail)}
+.tag.skip{background:#EEEDF4;color:var(--skip)}
+.tag.wait{background:rgba(176,114,9,.15);color:var(--wrn)}
+.tag.run{background:rgba(46,111,217,.14);color:var(--inf)}
+
+/* ── P1 파이프라인 ───────────────────── */
+.pipe{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:700px){.pipe{grid-template-columns:1fr}}
+.stage{border:1px solid var(--line);border-radius:5px;background:#FBFBFD;padding:10px;transition:.2s}
+.stage .sh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.stage .sn{font-size:12px;font-weight:700}
+.stage .sc{font-family:var(--mono);font-size:9.5px;color:var(--muted);display:block;margin-top:2px}
+.stage[data-st="pass"]{border-color:rgba(22,114,74,.5);background:rgba(22,114,74,.05)}
+.stage[data-st="block"]{border-color:rgba(192,57,43,.45);background:rgba(192,57,43,.05)}
+.stage[data-st="idle"]{opacity:.62}
+.gate{font-family:var(--mono);font-size:10.5px;margin-top:7px;padding:5px 7px;border-radius:3px;
+  background:#F2F1F7;color:#2F2B40;line-height:1.5}
+.arrowdown{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 0}
+.arrowdown.dead{color:var(--fail)}
+
+/* 포맷 조립기 */
+.fmtline{font-family:var(--mono);font-size:12px;background:#1A1828;color:#D8D5E6;border-radius:5px;
+  padding:10px 12px;margin-top:9px;overflow-x:auto;white-space:pre}
+.fmtline span{padding:1px 0;border-radius:2px}
+.fmtline span[data-hot="1"]{background:#F0B84A;color:#1A1828}
+
+/* ── P2 로거 트리 ────────────────────── */
+.tree{border:1px solid var(--line-soft);border-radius:5px;overflow:hidden}
+.node{border-bottom:1px solid var(--line-soft);padding:8px 10px;display:flex;gap:10px;
+  align-items:center;flex-wrap:wrap;transition:.2s}
+.node:last-child{border-bottom:0}
+.node[data-hot="1"]{background:rgba(62,58,140,.08)}
+.node .nm{font-family:var(--mono);font-size:11.5px;font-weight:700;min-width:96px}
+.node .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.node .eff{font-family:var(--mono);font-size:9.5px;color:var(--muted)}
+.hbadge{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;
+  border:1px solid var(--line);background:#fff;cursor:pointer}
+.hbadge[aria-pressed="true"]{background:var(--t1);border-color:var(--t1);color:#fff}
+.climb{margin-top:9px;border:1px dashed var(--line);border-radius:5px;padding:9px;background:#FBFBFD}
+.climbrow{font-family:var(--mono);font-size:11px;padding:3px 0;display:flex;gap:8px;align-items:center}
+.climbrow .st{font-size:9px;padding:1px 5px;border-radius:3px}
+.climbrow .who{font-weight:700;min-width:54px}
+
+/* 로테이션 */
+.files{display:flex;flex-direction:column;gap:5px}
+.frow{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px}
+.frow .fn{width:96px;flex:none}
+.frow .bar{flex:1;height:16px;background:#EEEDF4;border-radius:3px;overflow:hidden}
+.frow .bar i{display:block;height:100%;background:var(--t1);transition:width .4s}
+.frow .bar i.full{background:var(--wrn)}
+.frow .sz{width:62px;text-align:right;flex:none;color:var(--muted)}
+.frow.dead{opacity:.45}
+.frow.dead .fn{text-decoration:line-through;color:var(--fail)}
+
+/* ── P3 수집 사슬 ────────────────────── */
+.chain{display:flex;flex-direction:column;gap:0}
+.chainrow{border:1px solid var(--line);border-radius:5px;padding:9px 11px;background:#FBFBFD;transition:.2s}
+.chainrow .ch{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chainrow .kd{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.08em}
+.chainrow .val{font-family:var(--mono);font-size:12.5px;font-weight:700}
+.chainrow .why{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.chainrow[data-st="in"]{border-color:rgba(22,114,74,.5);background:rgba(22,114,74,.05)}
+.chainrow[data-st="out"]{border-color:rgba(192,57,43,.45);background:rgba(192,57,43,.05)}
+.chainrow[data-st="dead"]{opacity:.5}
+.chainlink{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 0}
+
+/* 실패 리포트 주석 */
+.ann{font-family:var(--mono);font-size:11.5px;line-height:1.75;background:#1A1828;color:#D8D5E6;
+  border-radius:5px;padding:11px 13px;margin-top:9px;overflow-x:auto;white-space:pre}
+.ann .z{cursor:pointer;border-radius:2px;padding:1px 2px}
+.ann .z:hover,.ann .z[data-hot="1"]{background:#F0B84A;color:#1A1828}
+.anncap{font-size:12.5px;line-height:1.55;margin-top:9px;padding:9px 11px;border-radius:4px;
+  background:#F4F3F9;border-left:3px solid var(--t2);min-height:38px}
+
+/* ── P4 타임라인 ─────────────────────── */
+.tl{display:flex;flex-direction:column;gap:3px}
+.tlrow{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;
+  padding:4px 7px;border-radius:3px;background:#FBFBFD;border:1px solid var(--line-soft)}
+.tlrow.setup{background:rgba(62,58,140,.09);border-color:rgba(62,58,140,.28)}
+.tlrow.tear{background:rgba(102,96,120,.1)}
+.tlrow.badtest{background:rgba(192,57,43,.08);border-color:rgba(192,57,43,.35)}
+.tlrow .ic{width:58px;flex:none;font-size:9px;letter-spacing:.05em;color:var(--muted)}
+.tlrow .du{margin-left:auto;color:var(--muted);font-size:10px}
+.pgrid{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.pchip{font-family:var(--mono);font-size:10.5px;padding:4px 8px;border-radius:3px;
+  border:1px solid var(--line);background:#FBFBFD}
+.pool{display:flex;flex-wrap:wrap;gap:5px}
+
+/* ── P5/P6 ───────────────────────────── */
+.yaml{background:#1A1828;border-radius:5px;padding:9px 3px;font-family:var(--mono);font-size:11.5px;
+  line-height:1.6;overflow-x:auto}
+.yline{display:block;width:100%;text-align:left;background:none;border:0;color:#C6C2D8;
+  padding:1px 10px;white-space:pre;border-left:3px solid transparent}
+.yline[data-k]{cursor:pointer}
+.yline[data-k]:hover,.yline[data-hot="1"]{background:rgba(255,255,255,.09);border-left-color:#F0B84A;color:#fff}
+.yline[data-cm="1"]{color:#8A84A0}
+.yline:focus-visible{outline:2px solid #F0B84A;outline-offset:-2px}
+.evgrid{display:flex;flex-direction:column;gap:5px}
+.evrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);
+  border-radius:4px;background:#FBFBFD;cursor:pointer;text-align:left;width:100%;font-family:var(--mono);
+  font-size:11px;transition:.15s}
+.evrow:hover{border-color:var(--accent)}
+.evrow[data-hot="1"]{border-color:var(--accent);box-shadow:0 0 0 2px rgba(160,58,120,.16)}
+.evrow[data-st="run"]{background:rgba(22,114,74,.06)}
+.evrow[data-st="skip"]{opacity:.62}
+.evrow .why{margin-left:auto;font-size:10px;color:var(--muted);text-align:right}
+.evrow:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.jobs{display:flex;flex-wrap:wrap;gap:5px}
+.job{font-family:var(--mono);font-size:10.5px;padding:5px 8px;border-radius:4px;
+  border:1px solid var(--line);background:#FBFBFD;transition:.25s}
+.job[data-st="pass"]{background:rgba(22,114,74,.1);border-color:rgba(22,114,74,.45);color:var(--pass)}
+.job[data-st="fail"]{background:rgba(192,57,43,.1);border-color:rgba(192,57,43,.45);color:var(--fail)}
+.job[data-st="cancel"]{background:#EEEDF4;color:var(--skip);text-decoration:line-through}
+.job[data-st="run"]{background:rgba(46,111,217,.1);border-color:rgba(46,111,217,.4);color:var(--inf)}
+
+.dag{display:flex;flex-direction:column;gap:0}
+.dagjob{border:1px solid var(--line);border-radius:5px;padding:9px 11px;background:#FBFBFD;transition:.2s}
+.dagjob .dh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.dagjob .dn{font-family:var(--mono);font-size:12px;font-weight:700}
+.dagjob .dw{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.dagjob[data-st="pass"]{border-color:rgba(22,114,74,.5);background:rgba(22,114,74,.05)}
+.dagjob[data-st="fail"]{border-color:rgba(192,57,43,.45);background:rgba(192,57,43,.05)}
+.dagjob[data-st="skip"]{opacity:.55;border-style:dashed}
+.dagjob[data-st="wait"]{border-color:rgba(176,114,9,.5);background:rgba(176,114,9,.07)}
+.daglink{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 0}
+.daglink.dead{color:var(--skip)}
+
+.footnav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:8px;padding:11px;
+  background:linear-gradient(to top,var(--paper) 62%,rgba(235,234,241,0));pointer-events:none}
+.footnav button{pointer-events:auto;font-family:var(--mono);font-size:11.5px;padding:8px 15px;
+  border-radius:18px;border:1px solid var(--line);background:#fff;cursor:pointer;
+  box-shadow:0 2px 8px rgba(23,21,38,.1);transition:.15s}
+.footnav button:hover:not(:disabled){background:var(--ink);color:#fff;border-color:var(--ink)}
+.footnav button:disabled{opacity:.34;cursor:not-allowed}
+.footnav .pos{pointer-events:none;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--muted);padding:0 4px}
+@media (max-width:700px){
+  .rail{gap:4px}
+  .seg .t{display:none}
+  .seg{padding:6px 4px;text-align:center}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
+</style>
+</head>
+<body>
+<div class="deck">
+
+  <header class="topbar">
+    <div class="brandline">
+      <div class="brand">logging <em>·</em> pytest <em>·</em> ci/cd <em>— 하루 완성</em></div>
+      <div class="brand-sub">50분 × 6교시 · PYTHON · GITHUB ACTIONS</div>
+    </div>
+    <nav class="rail" id="rail" aria-label="교시 이동"></nav>
+  </header>
+
+  <main class="pages" id="pages">
+
+  <!-- ══════════ 1교시 ══════════ -->
+  <section class="page on" data-track="t1" id="p1">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">1교시 · LOGGING 기초</div>
+      <h1>로그가 안 보이는 이유는 문이 두 개이기 때문</h1>
+      <p>레코드는 로거의 레벨을 통과하고, 다시 각 핸들러의 레벨을 통과해야 출력됩니다. 둘 중 하나만 막혀도 아무것도 보이지 않습니다. 직접 레벨을 바꿔 보며 어느 문에서 막히는지 확인합니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><b>print의 한계</b> — 끄고 켤 수 없고 흔적이 안 남는다</li>
+          <li>5단계 레벨과 고르는 기준</li>
+          <li><b>Logger · Handler · Formatter</b>의 역할 분담</li>
+          <li>레벨 검사가 <b>두 번</b> 일어난다는 것</li>
+          <li><span class="cmd">getLogger(__name__)</span> 을 쓰는 이유</li>
+          <li>콘솔과 파일에 다르게 남기기</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>print를 걷어내고 레벨을 나눠 쓸 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 01-A</span>레코드가 지나가는 두 개의 문</div>
+            <div class="panel-note">호출 레벨과 두 레벨을 바꿔 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">코드에서 호출한 것</div>
+            <div class="btnrow" id="p1calls"></div>
+            <div class="rowlab">설정</div>
+            <div class="btnrow">
+              <span style="font-family:var(--mono);font-size:11px">logger.setLevel</span>
+              <select class="sel" id="p1lg"></select>
+              <span style="font-family:var(--mono);font-size:11px;margin-left:8px">console</span>
+              <select class="sel" id="p1h0"></select>
+              <span style="font-family:var(--mono);font-size:11px;margin-left:8px">file</span>
+              <select class="sel" id="p1h1"></select>
+            </div>
+            <div id="p1flow" style="margin-top:11px"></div>
+            <div class="hint" id="p1hint"></div>
+          </div>
+          <div class="obs" id="p1obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 01-B</span>포맷 문자열과 출력 한 줄</div>
+            <div class="panel-note">항목을 켜고 끄면 출력이 바로 바뀝니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">format 에 넣을 항목</div>
+            <div class="btnrow" id="p1toks"></div>
+            <div class="fmtline" id="p1fmt"></div>
+            <div class="fmtline" id="p1out"></div>
+            <div class="hint" id="p1fhint">항목 위에 마우스를 올리면 출력의 어느 부분이 되는지 표시됩니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 2교시 ══════════ -->
+  <section class="page" data-track="t1" id="p2">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">2교시 · LOGGING 활용</div>
+      <h1>로그가 두 번 찍히는 이유는 위로 올라가기 때문</h1>
+      <p>로거는 점(.)으로 이어진 가족입니다. 레코드는 자기 핸들러에 전달된 뒤 부모에게로 계속 올라갑니다. 이 성질이 중복 출력과 라이브러리 로그 폭주의 원인입니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><b>로거 계층</b>과 이름 규칙 <span class="cmd">app.db</span></li>
+          <li>레벨 상속 — <span class="cmd">NOTSET</span> 이면 부모를 따라간다</li>
+          <li><b>propagate</b> 와 중복 출력</li>
+          <li><span class="cmd">dictConfig</span> 로 설정 분리</li>
+          <li><span class="cmd">logger.exception()</span> 으로 traceback 남기기</li>
+          <li>파일 로테이션과 보관량 계산</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>설정을 코드에서 분리하고 운영용 로그를 남길 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 02-A</span>레코드는 부모에게로 올라간다</div>
+            <div class="panel-note">핸들러를 두 곳에 켜 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="tree" id="p2tree"></div>
+            <div class="rowlab">로그 호출</div>
+            <div class="btnrow" id="p2emit"></div>
+            <div class="climb" id="p2climb"></div>
+            <div class="hint" id="p2hint"></div>
+          </div>
+          <div class="obs" id="p2obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 02-B</span>로테이션 — 무엇이 남고 무엇이 지워지나</div>
+            <div class="panel-note">RotatingFileHandler</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow">
+              <span style="font-family:var(--mono);font-size:11px">maxBytes</span>
+              <select class="sel" id="p2max"></select>
+              <span style="font-family:var(--mono);font-size:11px;margin-left:8px">backupCount</span>
+              <select class="sel" id="p2bk"></select>
+              <button class="btn pri" id="b2-write">로그 8KB 기록</button>
+              <button class="btn gho" id="b2-reset">처음부터</button>
+            </div>
+            <div class="files" id="p2files" style="margin-top:11px"></div>
+            <div class="hint" id="p2rhint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 3교시 ══════════ -->
+  <section class="page" data-track="t2" id="p3">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">3교시 · PYTEST 기초</div>
+      <h1>이름이 규칙에 맞아야 테스트로 취급된다</h1>
+      <p>pytest는 이름으로 테스트를 찾습니다. 파일이 안 잡히면 그 안의 함수도 영영 실행되지 않습니다. 규칙을 하나씩 어겨 보면서 무엇이 수집되고 무엇이 조용히 사라지는지 확인합니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><b>수집 규칙</b> — 파일 · 클래스 · 함수 이름</li>
+          <li><span class="cmd">assert</span> 한 줄로 끝나는 이유</li>
+          <li><b>실패 리포트 읽는 법</b> — 오늘의 핵심</li>
+          <li>실행 옵션 <span class="cmd">-v</span> <span class="cmd">-k</span> <span class="cmd">-x</span> <span class="cmd">--lf</span></li>
+          <li><span class="cmd">pytest.raises</span> 로 예외 검증</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>테스트를 작성하고 실패 메시지를 읽을 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 03-A</span>수집 사슬 — 위가 막히면 아래는 없다</div>
+            <div class="panel-note">이름을 눌러 바꿔 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="chain" id="p3chain"></div>
+            <div class="hint" id="p3hint"></div>
+          </div>
+          <div class="obs" id="p3obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 03-B</span>옵션이 바꾸는 것 — 무엇이 실행되는가</div>
+            <div class="panel-note">옵션을 켜고 실행해 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">실행 옵션</div>
+            <div class="btnrow" id="p3flags"></div>
+            <div class="btnrow" style="margin-top:6px">
+              <button class="btn pri" id="b3-run">pytest 실행</button>
+              <button class="btn gho" id="b3-reset">기록 지우기</button>
+            </div>
+            <div class="term" id="p3term" style="margin-top:10px"></div>
+            <div id="p3fail"></div>
+            <div class="hint" id="p3rhint"></div>
+          </div>
+          <div class="obs" id="p3obs2"></div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 4교시 ══════════ -->
+  <section class="page" data-track="t2" id="p4">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">4교시 · PYTEST 활용</div>
+      <h1>scope는 속도와 격리를 맞바꾸는 손잡이</h1>
+      <p>fixture의 scope를 넓히면 준비 작업이 줄어 빨라집니다. 대신 테스트끼리 같은 것을 나눠 쓰게 되어, 앞 테스트가 남긴 흔적이 뒤 테스트를 깨뜨릴 수 있습니다. 양쪽을 같이 확인합니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><span class="cmd">fixture</span> 와 <span class="cmd">yield</span> 뒷정리</li>
+          <li><b>scope</b> — function · module · session</li>
+          <li><span class="cmd">conftest.py</span> 로 공유하기</li>
+          <li><b>parametrize</b> 로 케이스 늘리기</li>
+          <li><span class="cmd">tmp_path</span> <span class="cmd">monkeypatch</span> <span class="cmd">caplog</span></li>
+          <li>외부 의존을 <b>mock</b> 으로 대체하기</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>fixture·parametrize·mock으로 실전 테스트를 짤 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 04-A</span>scope를 바꾸면 준비가 몇 번 일어나는가</div>
+            <div class="panel-note">테스트 4개 · 모듈 2개</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow">
+              <span style="font-family:var(--mono);font-size:11px">@pytest.fixture(scope=</span>
+              <select class="sel" id="p4scope"></select>
+              <span style="font-family:var(--mono);font-size:11px">)</span>
+              <button class="btn" id="b4-dirty" aria-pressed="false">테스트가 fixture를 더럽힘</button>
+            </div>
+            <div class="tl" id="p4tl" style="margin-top:11px"></div>
+            <div class="hint" id="p4hint"></div>
+          </div>
+          <div class="obs" id="p4obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 04-B</span>parametrize — 함수 하나가 테스트 여러 개가 된다</div>
+            <div class="panel-note">값을 켜고 끄면 개수가 바뀝니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">첫 번째 parametrize · 입력값</div>
+            <div class="btnrow pool" id="p4pa"></div>
+            <div class="rowlab">두 번째 parametrize · 통화</div>
+            <div class="btnrow pool" id="p4pb"></div>
+            <div class="term" id="p4code" style="margin-top:10px"></div>
+            <div class="pgrid" id="p4ids"></div>
+            <div class="hint" id="p4phint"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 04-C</span>mock — 진짜 호출과 가짜 호출</div>
+            <div class="panel-note">같은 테스트, 다른 의존</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow">
+              <button class="btn" id="b4-real" aria-pressed="true">실제 API 호출</button>
+              <button class="btn" id="b4-mock" aria-pressed="false">mock 으로 대체</button>
+              <button class="btn pri" id="b4-mrun">테스트 실행</button>
+            </div>
+            <div class="term" id="p4mterm" style="margin-top:10px"></div>
+            <div class="hint" id="p4mhint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 5교시 ══════════ -->
+  <section class="page" data-track="t3" id="p5">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">5교시 · CI 구축</div>
+      <h1>어떤 사건이 파이프라인을 깨우는가</h1>
+      <p>워크플로가 안 돌 때는 대부분 코드가 아니라 <span class="cmd">on:</span> 이 문제입니다. 설정을 켜고 끄면서 어떤 사건이 걸리고 어떤 사건이 무시되는지 맞춰 봅니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><b>on · jobs · steps</b> 구조</li>
+          <li>트리거 조건과 브랜치 필터</li>
+          <li><span class="cmd">checkout</span> <span class="cmd">setup-python</span> 필수 액션</li>
+          <li><b>matrix</b> 로 여러 버전 동시 검증</li>
+          <li><span class="cmd">fail-fast</span> 와 취소 동작</li>
+          <li>캐시로 설치 시간 줄이기 · 브랜치 보호 규칙</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>push할 때마다 테스트가 자동으로 돌게 만들 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 05-A</span>트리거 — 설정과 사건 맞춰 보기</div>
+            <div class="panel-note">양쪽 어디를 눌러도 연결됩니다</div>
+          </div>
+          <div class="panel-body">
+            <div class="pipe">
+              <div>
+                <div class="yaml" id="p5yaml"></div>
+                <div class="rowlab">설정 켜고 끄기</div>
+                <div class="btnrow" id="p5toggles"></div>
+              </div>
+              <div class="evgrid" id="p5events"></div>
+            </div>
+            <div class="hint" id="p5hint"></div>
+          </div>
+          <div class="obs" id="p5obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 05-B</span>matrix — 조합이 곧 실행 개수</div>
+            <div class="panel-note">하나가 실패하면 나머지는?</div>
+          </div>
+          <div class="panel-body">
+            <div class="rowlab">python-version</div>
+            <div class="btnrow pool" id="p5py"></div>
+            <div class="rowlab">os</div>
+            <div class="btnrow pool" id="p5os"></div>
+            <div class="rowlab">동작</div>
+            <div class="btnrow">
+              <button class="btn" id="b5-ff" aria-pressed="true">fail-fast: true</button>
+              <button class="btn pri" id="b5-run">3.11 에서 실패시키고 실행</button>
+              <button class="btn gho" id="b5-reset">되돌리기</button>
+            </div>
+            <div class="jobs" id="p5jobs" style="margin-top:11px"></div>
+            <div class="hint" id="p5mhint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- ══════════ 6교시 ══════════ -->
+  <section class="page" data-track="t3" id="p6">
+   <div class="wrap">
+    <div class="phead">
+      <div class="eyebrow">6교시 · CD와 통합</div>
+      <h1>배포는 통과한 것에만 열리는 문이다</h1>
+      <p>배포 job이 안 도는 이유는 세 가지뿐입니다. 앞 단계가 실패했거나, 조건에 맞지 않거나, 승인을 기다리는 중이거나. 셋을 각각 만들어 보며 확인합니다.</p>
+    </div>
+    <div class="cols">
+      <aside class="brief">
+        <h3>다루는 것</h3>
+        <ul class="blist">
+          <li><span class="cmd">needs</span> 로 만드는 실행 순서</li>
+          <li><span class="cmd">if</span> 조건 — 태그일 때만 배포</li>
+          <li><b>environment</b> 와 승인 단계</li>
+          <li><b>시크릿</b> 관리와 로그 마스킹</li>
+          <li>배포 후 확인과 롤백</li>
+          <li>마무리 — 관측 · 검증 · 반복</li>
+        </ul>
+        <div class="goal"><b>수업 목표</b>검증을 통과한 것만 자동으로 배포할 수 있다.</div>
+      </aside>
+
+      <div class="lab">
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 06-A</span>파이프라인 게이트 — 왜 배포가 안 도는가</div>
+            <div class="panel-note">세 가지 상황을 만들어 보세요</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow">
+              <span style="font-family:var(--mono);font-size:11px">사건</span>
+              <select class="sel" id="p6ev"></select>
+              <span style="font-family:var(--mono);font-size:11px;margin-left:8px">테스트</span>
+              <select class="sel" id="p6test"></select>
+              <span style="font-family:var(--mono);font-size:11px;margin-left:8px">승인</span>
+              <select class="sel" id="p6ap"></select>
+            </div>
+            <div class="dag" id="p6dag" style="margin-top:11px"></div>
+            <div class="hint" id="p6hint"></div>
+          </div>
+          <div class="obs" id="p6obs"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title"><span>LAB 06-B</span>시크릿 — 로그에 무엇이 남는가</div>
+            <div class="panel-note">세 가지 방식 비교</div>
+          </div>
+          <div class="panel-body">
+            <div class="btnrow" id="p6smodes"></div>
+            <div class="yaml" id="p6syaml" style="margin-top:10px"></div>
+            <div class="term" id="p6sterm" style="margin-top:8px"></div>
+            <div class="hint" id="p6shint"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  </main>
+
+  <nav class="footnav">
+    <button id="navPrev">← 이전 교시</button>
+    <div class="pos" id="navPos">1 / 6</div>
+    <button id="navNext">다음 교시 →</button>
+  </nav>
+</div>
+
+<script>
+"use strict";
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, txt){ var e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+function on(id, fn){ var e=$(id); if(e) e.addEventListener("click", fn); }
+function setHint(id, msg, kind){ var e=$(id); if(!e) return; e.className="hint"+(kind?(" "+kind):""); e.innerHTML=msg; }
+function fill(sel, opts, val){
+  var s=$(sel); if(!s) return;
+  s.innerHTML="";
+  opts.forEach(function(o){
+    var v = (typeof o==="string") ? o : o.v, t = (typeof o==="string") ? o : o.t;
+    var op=el("option",null,t); op.value=v; if(v===val) op.selected=true; s.appendChild(op);
+  });
+}
+function ts(){
+  var d=new Date();
+  function p(n){ return (n<10?"0":"")+n; }
+  return p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());
+}
+function obs(id, txt){ $(id).innerHTML='<span class="ts">['+ts()+']</span> '+txt; }
+
+/* ── 네비게이션 ───────────────────────── */
+var LESSONS=[
+ {id:"p1",n:"01",t:"Logging 기초",c:"var(--t1)"},
+ {id:"p2",n:"02",t:"Logging 활용",c:"var(--t1)"},
+ {id:"p3",n:"03",t:"pytest 기초",c:"var(--t2)"},
+ {id:"p4",n:"04",t:"pytest 활용",c:"var(--t2)"},
+ {id:"p5",n:"05",t:"CI 구축",c:"var(--t3)"},
+ {id:"p6",n:"06",t:"CD와 통합",c:"var(--t3)"}
+];
+var cur=0;
+(function(){
+  var rail=$("rail");
+  LESSONS.forEach(function(L,i){
+    var b=el("button","seg");
+    b.style.setProperty("--segc",L.c);
+    b.appendChild(el("span","n",L.n));
+    b.appendChild(el("span","t",L.t));
+    b.addEventListener("click",function(){ go(i); });
+    rail.appendChild(b);
+  });
+})();
+function go(i){
+  if(i<0||i>=LESSONS.length) return;
+  cur=i;
+  LESSONS.forEach(function(L,k){ var p=$(L.id); if(p) p.classList.toggle("on",k===i); });
+  var segs=$("rail").children;
+  for(var k=0;k<segs.length;k++) segs[k].setAttribute("data-on", k===i?"1":"0");
+  $("navPos").textContent=(i+1)+" / 6";
+  $("navPrev").disabled=(i===0);
+  $("navNext").disabled=(i===LESSONS.length-1);
+  var pg=$(LESSONS[i].id); if(pg) pg.scrollTop=0;
+}
+on("navPrev",function(){ go(cur-1); });
+on("navNext",function(){ go(cur+1); });
+document.addEventListener("keydown",function(e){
+  var t=e.target&&e.target.tagName;
+  if(t==="INPUT"||t==="TEXTAREA"||t==="SELECT") return;
+  if(e.key==="ArrowRight") go(cur+1);
+  if(e.key==="ArrowLeft") go(cur-1);
+});
+
+/* ════════ 공통: 레벨 ════════ */
+var LEVELS=["DEBUG","INFO","WARNING","ERROR","CRITICAL"];
+var LNUM={NOTSET:0,DEBUG:10,INFO:20,WARNING:30,ERROR:40,CRITICAL:50};
+
+/* ════════ 1교시 ════════ */
+var P1={call:"INFO", lg:"WARNING", h:["DEBUG","ERROR"]};
+function p1Render(){
+  var box=$("p1calls");
+  if(!box.children.length){
+    LEVELS.forEach(function(L){
+      var b=el("button","btn");
+      b.id="p1c-"+L;
+      b.innerHTML='logger.'+L.toLowerCase()+'("...")';
+      b.addEventListener("click",function(){ P1.call=L; p1Render(); });
+      box.appendChild(b);
+    });
+  }
+  LEVELS.forEach(function(L){ $("p1c-"+L).setAttribute("aria-pressed", P1.call===L?"true":"false"); });
+
+  var passLogger = LNUM[P1.call] >= LNUM[P1.lg];
+  var hres = P1.h.map(function(hl){ return passLogger && LNUM[P1.call] >= LNUM[hl]; });
+
+  var f=$("p1flow");
+  f.innerHTML="";
+  var s1=el("div","stage");
+  s1.setAttribute("data-st", passLogger?"pass":"block");
+  s1.innerHTML='<div class="sh"><div><span class="sn">1번 문 · Logger "app"</span>'+
+    '<span class="sc">logger.setLevel('+P1.lg+')</span></div>'+
+    '<span class="tag '+(passLogger?"pass":"fail")+'">'+(passLogger?"통과":"여기서 버려짐")+'</span></div>'+
+    '<div class="gate">'+P1.call+'('+LNUM[P1.call]+') '+(passLogger?"&ge;":"&lt;")+' '+P1.lg+'('+LNUM[P1.lg]+')'+
+    (passLogger?" → 레코드를 만들어 핸들러로 보냅니다":" → 레코드를 아예 만들지 않습니다")+'</div>';
+  f.appendChild(s1);
+  f.appendChild(el("div","arrowdown"+(passLogger?"":" dead"), passLogger?"▼  핸들러 2개로 전달":"✕  전달 중단"));
+
+  var grid=el("div","pipe");
+  ["console (StreamHandler)","file (FileHandler)"].forEach(function(nm,i){
+    var st = !passLogger ? "idle" : (hres[i]?"pass":"block");
+    var d=el("div","stage");
+    d.setAttribute("data-st",st);
+    d.innerHTML='<div class="sh"><div><span class="sn">2번 문 · '+nm+'</span>'+
+      '<span class="sc">handler.setLevel('+P1.h[i]+')</span></div>'+
+      '<span class="tag '+(st==="pass"?"pass":st==="block"?"fail":"skip")+'">'+
+      (st==="pass"?"출력됨":st==="block"?"막힘":"도달 못 함")+'</span></div>'+
+      '<div class="gate">'+(!passLogger?"1번 문에서 이미 버려져 여기까지 오지 않습니다":
+        (P1.call+'('+LNUM[P1.call]+') '+(hres[i]?"&ge;":"&lt;")+' '+P1.h[i]+'('+LNUM[P1.h[i]]+')'))+'</div>';
+    grid.appendChild(d);
+  });
+  f.appendChild(grid);
+
+  var outN = hres.filter(Boolean).length;
+  if(!passLogger){
+    setHint("p1hint","<b>로거 레벨에서 막혔습니다.</b> 핸들러를 아무리 DEBUG로 낮춰도 소용이 없습니다. "+
+      "레코드 자체가 만들어지지 않기 때문입니다.<br>실무에서 \"핸들러는 DEBUG인데 왜 안 나오죠\"의 답이 대부분 이것입니다.","bad");
+  } else if(outN===0){
+    setHint("p1hint","로거는 통과했지만 <b>두 핸들러 모두 자기 레벨에서 걸렀습니다.</b> "+
+      "레코드는 만들어졌는데 받아 적는 곳이 없는 상태입니다.","warn");
+  } else if(outN===1){
+    setHint("p1hint","<b>한 곳에만 출력됩니다.</b> 이렇게 핸들러마다 레벨을 다르게 두면 "+
+      "콘솔에는 요약만, 파일에는 상세까지 남기는 구성을 만들 수 있습니다.","good");
+  } else {
+    setHint("p1hint","두 곳 모두 출력됩니다. 레코드 하나가 <b>핸들러 수만큼 기록</b>된다는 점을 기억하세요.","good");
+  }
+  obs("p1obs","call=<b>"+P1.call+"</b> logger="+P1.lg+" console="+P1.h[0]+" file="+P1.h[1]+
+    " → 출력 <b>"+outN+"건</b>");
+}
+function p1Bind(){
+  fill("p1lg",LEVELS,P1.lg); fill("p1h0",LEVELS,P1.h[0]); fill("p1h1",LEVELS,P1.h[1]);
+  $("p1lg").addEventListener("change",function(e){ P1.lg=e.target.value; p1Render(); });
+  $("p1h0").addEventListener("change",function(e){ P1.h[0]=e.target.value; p1Render(); });
+  $("p1h1").addEventListener("change",function(e){ P1.h[1]=e.target.value; p1Render(); });
+
+  var TOKS=[
+    {k:"asctime", f:"%(asctime)s", o:"2026-08-16 14:02:11", d:"언제 찍혔는지. 없으면 순서를 알 수 없습니다."},
+    {k:"levelname", f:"%(levelname)s", o:"WARNING", d:"심각도. 로그를 걸러 볼 때 기준이 됩니다."},
+    {k:"name", f:"%(name)s", o:"app.db", d:"어느 로거인지. 2교시의 계층 이름이 여기 찍힙니다."},
+    {k:"filename", f:"%(filename)s:%(lineno)d", o:"query.py:42", d:"어느 줄인지. 원인을 찾을 때 가장 빨리 쓰입니다."},
+    {k:"message", f:"%(message)s", o:"연결 재시도 3회 초과", d:"내가 쓴 내용. 이것만 있으면 print와 다를 게 없습니다."}
+  ];
+  var stateT={asctime:true,levelname:true,name:true,filename:false,message:true};
+  var hot=null;
+  function fRender(){
+    var box=$("p1toks");
+    if(!box.children.length){
+      TOKS.forEach(function(T){
+        var b=el("button","btn"); b.id="p1t-"+T.k; b.textContent=T.f;
+        b.addEventListener("click",function(){
+          if(T.k==="message"){ setHint("p1fhint","<b>message는 뺄 수 없습니다.</b> 내용이 없는 로그는 아무 쓸모가 없으니까요.","warn"); return; }
+          stateT[T.k]=!stateT[T.k]; hot=T.k; fRender();
+        });
+        b.addEventListener("mouseenter",function(){ hot=T.k; paint(); });
+        b.addEventListener("mouseleave",function(){ hot=null; paint(); });
+        box.appendChild(b);
+      });
+    }
+    TOKS.forEach(function(T){ $("p1t-"+T.k).setAttribute("aria-pressed", stateT[T.k]?"true":"false"); });
+    var act=TOKS.filter(function(T){ return stateT[T.k]; });
+    $("p1fmt").innerHTML='<span class="dim">format = </span>"'+
+      act.map(function(T){ return '<span data-tk="'+T.k+'">'+T.f+'</span>'; }).join(" ")+'"';
+    $("p1out").innerHTML='<span class="dim">출력 → </span>'+
+      act.map(function(T){ return '<span data-tk="'+T.k+'">'+T.o+'</span>'; }).join(" ");
+    paint();
+    if(hot){
+      var T=TOKS.filter(function(x){ return x.k===hot; })[0];
+      setHint("p1fhint","<b>"+T.f+"</b> — "+T.d);
+    }
+  }
+  function paint(){
+    ["p1fmt","p1out"].forEach(function(id){
+      var sp=$(id).querySelectorAll("[data-tk]");
+      for(var i=0;i<sp.length;i++) sp[i].setAttribute("data-hot",(hot && sp[i].getAttribute("data-tk")===hot)?"1":"0");
+    });
+  }
+  fRender();
+}
+
+/* ════════ 2교시 ════════ */
+var P2NAMES=["root","app","app.db","app.api"];
+var P2={
+  nodes:{
+    "root":{parent:null, level:"WARNING", handler:true, prop:false},
+    "app":{parent:"root", level:"NOTSET", handler:false, prop:true},
+    "app.db":{parent:"app", level:"DEBUG", handler:true, prop:true},
+    "app.api":{parent:"app", level:"NOTSET", handler:false, prop:true}
+  },
+  last:null
+};
+function p2Eff(name){
+  var c=name;
+  while(c){ if(P2.nodes[c].level!=="NOTSET") return {lvl:P2.nodes[c].level, from:c}; c=P2.nodes[c].parent; }
+  return {lvl:"WARNING", from:"root(기본값)"};
+}
+function p2Emit(name, level){
+  var eff=p2Eff(name);
+  var steps=[];
+  if(LNUM[level] < LNUM[eff.lvl]){
+    steps.push({n:name, st:"fail", txt:"레벨 검사 실패 · "+level+" < "+eff.lvl+" ("+eff.from+"에서 상속)"});
+    return {steps:steps, outs:[], eff:eff, blocked:true};
+  }
+  steps.push({n:name, st:"pass", txt:"레벨 검사 통과 · "+level+" ≥ "+eff.lvl+" ("+eff.from+"에서 상속)"});
+  var outs=[], c=name;
+  while(c){
+    var nd=P2.nodes[c];
+    if(nd.handler){
+      outs.push(c);
+      steps.push({n:c, st:"out", txt:"핸들러 출력 → ["+level+"] "+name+": 메시지"});
+    } else {
+      steps.push({n:c, st:"skip", txt:"핸들러 없음 · 그냥 지나감"});
+    }
+    if(!nd.prop){
+      if(nd.parent) steps.push({n:c, st:"stop", txt:"propagate=False · 여기서 멈춤"});
+      break;
+    }
+    c=nd.parent;
+  }
+  return {steps:steps, outs:outs, eff:eff, blocked:false};
+}
+function p2Render(){
+  var t=$("p2tree");
+  t.innerHTML="";
+  P2NAMES.forEach(function(nm){
+    var nd=P2.nodes[nm];
+    var depth=nm.split(".").length-1+(nm==="root"?0:1);
+    var row=el("div","node");
+    row.setAttribute("data-hot", (P2.last && P2.last.touched.indexOf(nm)>=0)?"1":"0");
+    var label=el("div","nm", (depth?"└ ":"")+nm);
+    label.style.paddingLeft=(depth*13)+"px";
+    row.appendChild(label);
+    var eff=p2Eff(nm);
+    row.appendChild(el("span","eff","유효 레벨 "+eff.lvl+(nd.level==="NOTSET"?" (상속)":"")));
+    var ctl=el("div","ctl");
+    var sel=el("select","sel");
+    ["NOTSET"].concat(LEVELS).forEach(function(L){
+      var o=el("option",null,L==="NOTSET"?"NOTSET(상속)":L); o.value=L; if(L===nd.level) o.selected=true; sel.appendChild(o);
+    });
+    if(nm==="root"){ sel.querySelectorAll("option")[0].disabled=true; }
+    sel.addEventListener("change",function(e){ nd.level=e.target.value; p2Rerun(); });
+    ctl.appendChild(sel);
+    var hb=el("button","hbadge","핸들러");
+    hb.setAttribute("aria-pressed", nd.handler?"true":"false");
+    hb.addEventListener("click",function(){ nd.handler=!nd.handler; p2Rerun(); });
+    ctl.appendChild(hb);
+    if(nm!=="root"){
+      var pb=el("button","hbadge","propagate");
+      pb.setAttribute("aria-pressed", nd.prop?"true":"false");
+      pb.addEventListener("click",function(){ nd.prop=!nd.prop; p2Rerun(); });
+      ctl.appendChild(pb);
+    }
+    row.appendChild(ctl);
+    t.appendChild(row);
+  });
+
+  var em=$("p2emit");
+  if(!em.children.length){
+    [["app.db","INFO"],["app.db","ERROR"],["app.api","WARNING"],["app","INFO"]].forEach(function(p){
+      var b=el("button","btn pri");
+      b.textContent="getLogger('"+p[0]+"')."+p[1].toLowerCase()+"()";
+      b.addEventListener("click",function(){ P2.callName=p[0]; P2.callLevel=p[1]; p2Rerun(); });
+      em.appendChild(b);
+    });
+  }
+
+  var c=$("p2climb");
+  if(!P2.last){
+    c.innerHTML='<div class="climbrow" style="color:var(--muted)">위 버튼을 눌러 로그를 한 번 남겨 보세요.</div>';
+    obs("p2obs","대기 중 · 아직 남긴 로그가 없습니다");
+    return;
+  }
+  c.innerHTML="";
+  P2.last.steps.forEach(function(s){
+    var r=el("div","climbrow");
+    var cls = s.st==="out"?"tag pass": s.st==="fail"?"tag fail": s.st==="stop"?"tag wait":"tag skip";
+    var lab = s.st==="out"?"출력": s.st==="fail"?"차단": s.st==="stop"?"중단":"통과";
+    var b=el("span",cls,lab); b.classList.add("st");
+    r.appendChild(b);
+    r.appendChild(el("span","who",s.n));
+    r.appendChild(el("span","tx","· "+s.txt));
+    c.appendChild(r);
+  });
+  var n=P2.last.outs.length;
+  obs("p2obs","emit <b>"+P2.callName+"</b>."+P2.callLevel.toLowerCase()+"() → 출력 <b>"+n+"건</b>"+
+    (n>1?" · 같은 메시지가 "+n+"번 찍힙니다":""));
+}
+function p2Rerun(){
+  if(P2.callName){
+    var r=p2Emit(P2.callName,P2.callLevel);
+    r.touched=r.steps.map(function(s){ return s.n; });
+    P2.last=r;
+    var n=r.outs.length;
+    if(r.blocked){
+      setHint("p2hint","<b>레벨에서 막혔습니다.</b> "+P2.callName+" 의 레벨이 NOTSET이면 "+
+        "부모를 따라 올라가며 가장 가까운 설정을 씁니다. 지금 유효 레벨은 <b>"+r.eff.lvl+"</b> 입니다.","bad");
+    } else if(n===0){
+      setHint("p2hint","레벨은 통과했지만 <b>경로 어디에도 핸들러가 없습니다.</b> "+
+        "로그는 만들어졌지만 받아 적는 곳이 없어 사라집니다.","warn");
+    } else if(n>1){
+      setHint("p2hint","<b>같은 메시지가 "+n+"번 찍혔습니다.</b> 경로 위의 핸들러가 모두 받았기 때문입니다. "+
+        "중복 출력의 원인은 대부분 이것이고, 해결은 둘 중 하나입니다 — 자식의 핸들러를 떼거나 propagate를 끄거나.","warn");
+    } else {
+      setHint("p2hint","핸들러 한 곳에서만 출력되었습니다. 보통은 <b>핸들러를 root에만 두고 나머지는 이름만 나누는</b> 구성이 관리하기 쉽습니다.","good");
+    }
+  }
+  p2Render();
+}
+function p2Bind(){
+  p2Render();
+  var R={cur:0, backups:[], max:20, bk:2, dead:null};
+  fill("p2max",[{v:"10",t:"10 KB"},{v:"20",t:"20 KB"},{v:"40",t:"40 KB"}],"20");
+  fill("p2bk",[{v:"0",t:"0"},{v:"1",t:"1"},{v:"2",t:"2"},{v:"3",t:"3"}],"2");
+  function trim(){
+    while(R.backups.length>R.bk){ R.dead=R.backups.pop(); }
+  }
+  function rRender(){
+    var f=$("p2files");
+    f.innerHTML="";
+    function row(name,size,cls){
+      var r=el("div","frow"+(cls?" "+cls:""));
+      r.appendChild(el("div","fn",name));
+      var bar=el("div","bar");
+      var i=el("i"); i.style.width=Math.min(100,(size/R.max)*100)+"%";
+      if(size>=R.max) i.classList.add("full");
+      bar.appendChild(i); r.appendChild(bar);
+      r.appendChild(el("div","sz",size+" KB"));
+      return r;
+    }
+    f.appendChild(row("app.log",R.cur));
+    R.backups.forEach(function(s,i){ f.appendChild(row("app.log."+(i+1),s)); });
+    if(R.dead!=null) f.appendChild(row("app.log."+(R.bk+1),R.dead,"dead"));
+    var total=R.max*(R.bk+1);
+    setHint("p2rhint","보관 상한 = maxBytes × (backupCount + 1) = <b>"+R.max+"KB × "+(R.bk+1)+" = "+total+"KB</b>"+
+      (R.dead!=null?"<br><b>가장 오래된 파일이 삭제되었습니다.</b> 로테이션은 디스크를 지키는 대신 옛 기록을 버립니다. "+
+        "오래 보관해야 하면 backupCount를 늘리거나 수집 서버로 보내야 합니다.":
+        "<br>이 상한을 넘으면 가장 오래된 파일부터 삭제됩니다."), R.dead!=null?"warn":null);
+  }
+  function write(){
+    R.dead=null;
+    /* 실제 RotatingFileHandler 는 넘칠 것 같으면 "먼저 굴리고" 새 파일에 쓴다.
+       그래야 어떤 파일도 maxBytes 를 넘지 않고, 보관 상한 계산이 성립한다. */
+    if(R.cur>0 && R.cur+8>R.max){
+      R.backups.unshift(R.cur);
+      R.cur=0;
+      trim();
+    }
+    R.cur+=8;
+    rRender();
+  }
+  on("b2-write",write);
+  on("b2-reset",function(){ R.cur=0; R.backups=[]; R.dead=null; rRender(); });
+  $("p2max").addEventListener("change",function(e){ R.max=parseInt(e.target.value,10); rRender(); });
+  $("p2bk").addEventListener("change",function(e){ R.bk=parseInt(e.target.value,10); R.dead=null; trim(); rRender(); });
+  rRender();
+}
+
+/* ════════ 3교시 ════════ */
+var P3={
+  file:0, cls:0, fn:0, init:false,
+  FILES:["test_order.py","order_test.py","orders.py"],
+  CLS:["TestOrder","OrderChecks"],
+  FN:["test_total","check_total"]
+};
+function p3Collect(){
+  var fname=P3.FILES[P3.file];
+  var fileOk = /^test_.*\.py$/.test(fname) || /_test\.py$/.test(fname);
+  var cname=P3.CLS[P3.cls];
+  var clsName = /^Test/.test(cname);
+  var clsOk = fileOk && clsName && !P3.init;
+  var fnName=P3.FN[P3.fn];
+  var fnOk = clsOk && /^test/.test(fnName);
+  return {
+    fname:fname, fileOk:fileOk,
+    cname:cname, clsName:clsName, clsOk:clsOk,
+    fnName:fnName, fnOk:fnOk
+  };
+}
+function p3Render(){
+  var r=p3Collect();
+  var box=$("p3chain");
+  box.innerHTML="";
+  function rowEl(kind, val, st, why, onclick){
+    var d=el("div","chainrow");
+    d.setAttribute("data-st",st);
+    var h=el("div","ch");
+    var left=el("div");
+    left.appendChild(el("div","kd",kind));
+    left.appendChild(el("div","val",val));
+    h.appendChild(left);
+    var right=el("div","btnrow");
+    var tag=el("span","tag "+(st==="in"?"pass":st==="out"?"fail":"skip"),
+      st==="in"?"수집됨":st==="out"?"무시됨":"도달 못 함");
+    right.appendChild(tag);
+    if(onclick){
+      var b=el("button","btn","이름 바꾸기");
+      b.addEventListener("click",onclick);
+      right.appendChild(b);
+    }
+    h.appendChild(right);
+    d.appendChild(h);
+    d.appendChild(el("div","why",why));
+    return d;
+  }
+  box.appendChild(rowEl("파일", r.fname, r.fileOk?"in":"out",
+    r.fileOk ? "규칙 test_*.py 또는 *_test.py 에 맞습니다."
+             : "어느 규칙에도 안 맞습니다. pytest는 이 파일을 열어 보지도 않습니다.",
+    function(){ P3.file=(P3.file+1)%P3.FILES.length; p3Render(); }));
+  box.appendChild(el("div","chainlink","▼  파일이 수집되어야 안을 들여다봅니다"));
+
+  var clsSt = !r.fileOk ? "dead" : (r.clsOk ? "in" : "out");
+  var clsWhy;
+  if(!r.fileOk) clsWhy="파일이 무시되었으므로 이 클래스는 존재조차 확인되지 않습니다.";
+  else if(!r.clsName) clsWhy="클래스 이름이 Test로 시작하지 않습니다.";
+  else if(P3.init) clsWhy="이름은 맞지만 __init__ 이 있어서 pytest가 건너뜁니다. 경고만 남고 조용히 빠집니다.";
+  else clsWhy="Test로 시작하고 __init__ 이 없어 수집됩니다.";
+  var clsRow=rowEl("클래스", r.cname+(P3.init?"  (__init__ 있음)":""), clsSt, clsWhy,
+    function(){ P3.cls=(P3.cls+1)%P3.CLS.length; p3Render(); });
+  var ib=el("button","btn","__init__ "+(P3.init?"제거":"추가"));
+  ib.addEventListener("click",function(){ P3.init=!P3.init; p3Render(); });
+  clsRow.querySelector(".btnrow").appendChild(ib);
+  box.appendChild(clsRow);
+  box.appendChild(el("div","chainlink","▼  클래스가 수집되어야 메서드를 봅니다"));
+
+  var fnSt = !r.clsOk ? "dead" : (r.fnOk ? "in" : "out");
+  var fnWhy;
+  if(!r.clsOk) fnWhy="위 단계가 막혀 여기까지 오지 않습니다.";
+  else if(!/^test/.test(r.fnName)) fnWhy="함수 이름이 test 로 시작하지 않습니다.";
+  else fnWhy="test 로 시작하므로 테스트로 실행됩니다.";
+  box.appendChild(rowEl("메서드", r.fnName+"(self)", fnSt, fnWhy,
+    function(){ P3.fn=(P3.fn+1)%P3.FN.length; p3Render(); }));
+
+  if(r.fnOk){
+    setHint("p3hint","세 단계가 모두 통과해 테스트 <b>1개</b>가 수집되었습니다.","good");
+  } else if(!r.fileOk){
+    setHint("p3hint","<b>파일 이름 하나 때문에 안의 모든 테스트가 사라졌습니다.</b> "+
+      "터미널에는 <span class=\"cmd\">collected 0 items</span> 만 뜨고 오류는 나지 않습니다. "+
+      "\"분명히 썼는데 안 돈다\"의 첫 번째 원인입니다.","bad");
+  } else if(!r.clsOk){
+    setHint("p3hint","파일은 열렸지만 <b>클래스에서 막혔습니다.</b> 이 경우도 실패가 아니라 "+
+      "그냥 수집되지 않은 것이라 조용히 넘어갑니다.","warn");
+  } else {
+    setHint("p3hint","클래스까지 왔는데 <b>메서드 이름이 규칙에 안 맞습니다.</b> "+
+      "테스트를 껐다 켜려고 이름을 바꾸는 사람이 있는데, 실수로 영영 잊히기 쉽습니다. "+
+      "<span class=\"cmd\">@pytest.mark.skip</span> 을 쓰는 편이 안전합니다.","warn");
+  }
+  obs("p3obs","collected <b>"+(r.fnOk?1:0)+" items</b> · 파일 "+(r.fileOk?"○":"✕")+
+    " 클래스 "+(r.clsOk?"○":"✕")+" 메서드 "+(r.fnOk?"○":"✕"));
+}
+
+var P3T=[
+  {id:"test_order.py::test_total_basic", res:"pass"},
+  {id:"test_order.py::test_total_empty", res:"fail"},
+  {id:"test_order.py::test_discount", res:"pass"},
+  {id:"test_user.py::test_login", res:"pass"},
+  {id:"test_user.py::test_logout", res:"fail"},
+  {id:"test_user.py::test_signup", res:"pass"}
+];
+var P3R={v:false, x:false, k:"", lf:false, lastFailed:[], ran:false, annHot:null};
+function p3RunBind(){
+  var box=$("p3flags");
+  var defs=[
+    {k:"v", lab:"-v (자세히)"},
+    {k:"x", lab:"-x (첫 실패에서 중단)"},
+    {k:"lf", lab:"--lf (직전 실패만)"}
+  ];
+  defs.forEach(function(D){
+    var b=el("button","btn"); b.id="p3f-"+D.k; b.textContent=D.lab;
+    b.addEventListener("click",function(){
+      if(D.k==="lf" && !P3R.lastFailed.length){
+        setHint("p3rhint","<b>--lf 는 아직 쓸 수 없습니다.</b> 직전 실행 기록이 있어야 \"직전에 실패한 것\"을 알 수 있습니다. "+
+          "먼저 한 번 실행하세요.","warn");
+        return;
+      }
+      P3R[D.k]=!P3R[D.k]; p3RunRender();
+    });
+    box.appendChild(b);
+  });
+  var ksel=el("select","sel");
+  [{v:"",t:'-k 없음'},{v:"order",t:'-k "order"'},{v:"user",t:'-k "user"'},{v:"total",t:'-k "total"'}].forEach(function(o){
+    var op=el("option",null,o.t); op.value=o.v; ksel.appendChild(op);
+  });
+  ksel.addEventListener("change",function(e){ P3R.k=e.target.value; p3RunRender(); });
+  box.appendChild(ksel);
+  on("b3-run",function(){ p3Run(); });
+  on("b3-reset",function(){
+    P3R.lastFailed=[]; P3R.ran=false; P3R.lf=false; P3R.annHot=null;
+    $("p3fail").innerHTML="";
+    p3RunRender();
+    setHint("p3rhint","직전 실행 기록을 지웠습니다. <span class=\"cmd\">--lf</span> 는 다시 쓸 수 없게 됩니다.");
+  });
+  p3RunRender();
+}
+function p3Select(){
+  var list=P3T.slice();
+  if(P3R.k) list=list.filter(function(t){ return t.id.indexOf(P3R.k)>=0; });
+  if(P3R.lf && P3R.lastFailed.length) list=list.filter(function(t){ return P3R.lastFailed.indexOf(t.id)>=0; });
+  return list;
+}
+function p3RunRender(){
+  ["v","x","lf"].forEach(function(k){ $("p3f-"+k).setAttribute("aria-pressed", P3R[k]?"true":"false"); });
+  $("p3f-lf").disabled = !P3R.lastFailed.length;
+  var sel=p3Select();
+  obs("p3obs2", P3R.ran ? $("p3obs2").innerHTML.replace(/^<span class="ts">\[[^\]]+\]<\/span> /,"")
+    : "대기 중 · 선택될 테스트 <b>"+sel.length+"개</b>");
+  if(!P3R.ran){
+    $("p3term").innerHTML='<span class="dim">$ pytest'+
+      (P3R.v?" -v":"")+(P3R.x?" -x":"")+(P3R.k?' -k "'+P3R.k+'"':"")+(P3R.lf?" --lf":"")+
+      '</span>\n<span class="dim">실행 버튼을 눌러 결과를 확인하세요. 선택될 테스트: '+sel.length+'개</span>';
+  }
+}
+function p3Run(){
+  var sel=p3Select();
+  var lines=[], executed=[], stopped=false;
+  var cmd="$ pytest"+(P3R.v?" -v":"")+(P3R.x?" -x":"")+(P3R.k?' -k "'+P3R.k+'"':"")+(P3R.lf?" --lf":"");
+  lines.push('<span class="dim">'+cmd+'</span>');
+  lines.push('<span class="dim">collected '+P3T.length+' items'+
+    (sel.length!==P3T.length?' / '+(P3T.length-sel.length)+' deselected / '+sel.length+' selected':'')+'</span>');
+  lines.push("");
+  var nf=0, np=0;
+  for(var i=0;i<sel.length;i++){
+    var t=sel[i];
+    executed.push(t);
+    if(t.res==="pass"){ np++; lines.push('<span class="ok">PASSED</span>  '+t.id+(P3R.v?"":"")); }
+    else { nf++; lines.push('<span class="no">FAILED</span>  '+t.id); }
+    if(P3R.x && t.res==="fail"){ stopped=true; break; }
+  }
+  if(!P3R.v){
+    lines=lines.slice(0,3).concat(
+      ['<span class="dim">'+executed.map(function(t){ return t.res==="pass"?".":"F"; }).join("")+
+       (stopped?'   (중단)':'')+'</span>']);
+  }
+  var notRun = sel.length-executed.length;
+  lines.push("");
+  lines.push('<span class="'+(nf?"no":"ok")+'">'+
+    (nf?nf+" failed, ":"")+np+" passed"+
+    (P3T.length-sel.length?", "+(P3T.length-sel.length)+" deselected":"")+
+    " in 0.0"+(2+executed.length)+"s</span>");
+  if(notRun>0) lines.push('<span class="hi">'+notRun+"개는 -x 때문에 실행되지 않았습니다</span>");
+  $("p3term").innerHTML=lines.join("\n");
+
+  P3R.lastFailed=executed.filter(function(t){ return t.res==="fail"; }).map(function(t){ return t.id; });
+  P3R.ran=true;
+  p3FailRender(nf>0);
+  $("p3f-lf").disabled = !P3R.lastFailed.length;
+
+  var msg;
+  if(P3R.lf) msg="<b>--lf</b> 는 직전에 실패한 것만 다시 돌립니다. 고치는 중에는 이것만 반복하면 훨씬 빠릅니다.";
+  else if(P3R.x && stopped) msg="<b>-x</b> 는 첫 실패에서 즉시 멈춥니다. 뒤 테스트 결과를 모르게 되지만, 원인 하나에 집중할 때 유용합니다.";
+  else if(P3R.k) msg="<b>-k</b> 는 이름으로 고릅니다. deselected 로 빠진 개수가 함께 표시되는 점을 보세요.";
+  else if(P3R.v) msg="<b>-v</b> 는 테스트 이름을 한 줄씩 보여 줍니다. 옵션 없이 돌리면 점(.)과 F로만 표시됩니다.";
+  else msg="옵션 없이 돌리면 <b>점 하나가 통과, F가 실패</b>입니다. 어떤 테스트인지 보려면 -v 를 붙이세요.";
+  setHint("p3rhint", msg + (P3R.lastFailed.length?"<br>직전 실패 "+P3R.lastFailed.length+"개가 기록되어 <span class=\"cmd\">--lf</span> 를 쓸 수 있습니다.":""), "good");
+  obs("p3obs2","실행 "+executed.length+"개 · <b>"+nf+" failed</b> / "+np+" passed"+
+    (notRun>0?" · 미실행 "+notRun:""));
+}
+var P3ANN={
+  loc:"실패한 테스트의 이름입니다. 여러 개가 실패하면 이 블록이 여러 번 나옵니다.",
+  src:"테스트 코드가 그대로 보입니다. <b>&gt;</b> 표시가 붙은 줄이 실패한 바로 그 문장입니다.",
+  cmp:"pytest가 assert 를 다시 써서 <b>실제 값과 기대 값을 함께</b> 보여 줍니다. 왼쪽이 실제, 오른쪽이 기대입니다.",
+  src2:"그 값이 <b>어디서 나왔는지</b> 알려 줍니다. cart.total() 이 10을 돌려줬다는 뜻입니다.",
+  file:"파일과 줄 번호. 에디터에서 바로 열 수 있는 좌표입니다."
+};
+function p3FailRender(show){
+  var box=$("p3fail");
+  if(!show){ box.innerHTML=""; return; }
+  box.innerHTML=
+    '<div class="ann" id="p3ann">'+
+    '<span class="z" data-a="loc">_______________ TestOrder.test_total_empty _______________</span>\n\n'+
+    '<span class="z" data-a="src">    def test_total_empty(self):\n'+
+    '        cart = Cart()\n'+
+    '&gt;       assert cart.total() == 0</span>\n'+
+    '<span class="z" data-a="cmp">E       assert 10 == 0</span>\n'+
+    '<span class="z" data-a="src2">E        +  where 10 = &lt;Cart&gt;.total()</span>\n\n'+
+    '<span class="z" data-a="file">test_order.py:14: AssertionError</span>'+
+    '</div>'+
+    '<div class="anncap" id="p3anncap">실패 리포트의 각 줄을 눌러 보세요. 무엇을 알려 주는 줄인지 설명합니다.</div>';
+  var zs=$("p3ann").querySelectorAll(".z");
+  for(var i=0;i<zs.length;i++){
+    (function(z){
+      z.addEventListener("click",function(){
+        P3R.annHot=z.getAttribute("data-a");
+        for(var j=0;j<zs.length;j++) zs[j].setAttribute("data-hot", zs[j]===z?"1":"0");
+        $("p3anncap").innerHTML=P3ANN[P3R.annHot];
+      });
+    })(zs[i]);
+  }
+}
+
+/* ════════ 4교시 ════════ */
+var P4={scope:"function", dirty:false};
+function p4Render(){
+  var mods=[{m:"test_a.py", t:["test_a1","test_a2"]},{m:"test_b.py", t:["test_b1","test_b2"]}];
+  var ev=[], setups=0, time=0;
+  var SETUP=0.5, TEST=0.1;
+  function setup(sc){ setups++; time+=SETUP; ev.push({k:"setup", txt:"SETUP db  ("+sc+")", d:SETUP}); }
+  function tear(sc){ time+=0.1; ev.push({k:"tear", txt:"TEARDOWN db  ("+sc+")", d:0.1}); }
+  var polluted=false, fails=0;
+  function runTest(name){
+    time+=TEST;
+    var bad = P4.dirty && polluted;
+    if(bad) fails++;
+    ev.push({k:bad?"badtest":"test", txt:name+(bad?"  ← 앞 테스트가 남긴 데이터 때문에 실패":""), d:TEST});
+    if(P4.dirty) polluted=true;
+  }
+  if(P4.scope==="function"){
+    mods.forEach(function(M){ M.t.forEach(function(t){ setup("function"); polluted=false; runTest(t); tear("function"); }); });
+  } else if(P4.scope==="module"){
+    mods.forEach(function(M){ setup("module"); polluted=false; M.t.forEach(runTest); tear("module"); });
+  } else {
+    setup("session"); polluted=false;
+    mods.forEach(function(M){ M.t.forEach(runTest); });
+    tear("session");
+  }
+  var tl=$("p4tl");
+  tl.innerHTML="";
+  ev.forEach(function(e){
+    var r=el("div","tlrow "+(e.k==="setup"?"setup":e.k==="tear"?"tear":e.k==="badtest"?"badtest":""));
+    r.appendChild(el("span","ic", e.k==="setup"?"SETUP":e.k==="tear"?"TEARDOWN":"TEST"));
+    r.appendChild(el("span","tx", e.txt));
+    r.appendChild(el("span","du", e.d.toFixed(1)+"s"));
+    tl.appendChild(r);
+  });
+  var sc=$("p4scope"); if(sc.value!==P4.scope) sc.value=P4.scope;
+  $("b4-dirty").setAttribute("aria-pressed", P4.dirty?"true":"false");
+
+  var msg;
+  if(P4.scope==="function"){
+    msg="준비가 <b>테스트마다</b> 일어납니다. 가장 느리지만 <b>테스트끼리 완전히 격리</b>됩니다. 기본값인 이유입니다.";
+    if(P4.dirty) msg+="<br>fixture를 더럽혀도 다음 테스트는 새로 만들어진 것을 받으므로 <b>아무 영향이 없습니다.</b>";
+  } else if(P4.scope==="module"){
+    msg="준비가 <b>파일마다 한 번</b>입니다. 4번이 2번으로 줄었습니다.";
+    if(P4.dirty) msg+="<br><b>같은 파일 안의 뒤 테스트가 깨졌습니다.</b> 하나를 나눠 쓰기 때문입니다.";
+  } else {
+    msg="준비가 <b>전체에서 한 번</b>입니다. 가장 빠릅니다.";
+    if(P4.dirty) msg+="<br><b>파일을 넘어서까지 오염이 번졌습니다.</b> 이런 실패는 테스트를 따로 돌리면 통과해서 원인 찾기가 가장 어렵습니다.";
+  }
+  setHint("p4hint", msg + "<br>준비 "+setups+"회 · 총 "+time.toFixed(1)+"초"+(fails?" · <b>실패 "+fails+"개</b>":" · 실패 없음"),
+    fails?"bad":(P4.scope==="function"?"good":null));
+  obs("p4obs","scope=<b>"+P4.scope+"</b> · SETUP "+setups+"회 · "+time.toFixed(1)+"s · "+
+    (fails?"<b>"+fails+" failed</b> / "+(4-fails)+" passed":"4 passed"));
+}
+function p4Bind(){
+  fill("p4scope",[{v:"function",t:'"function"'},{v:"module",t:'"module"'},{v:"session",t:'"session"'}],"function");
+  $("p4scope").addEventListener("change",function(e){ P4.scope=e.target.value; p4Render(); });
+  on("b4-dirty",function(){ P4.dirty=!P4.dirty; p4Render(); });
+  p4Render();
+
+  /* parametrize */
+  var A=[{v:"(2, 3, 5)",on:true},{v:"(0, 0, 0)",on:true},{v:"(-1, 1, 0)",on:false},{v:"(99, 1, 100)",on:false}];
+  var B=[{v:'"KRW"',on:true},{v:'"USD"',on:false},{v:'"JPY"',on:false}];
+  function pRender(){
+    [["p4pa",A],["p4pb",B]].forEach(function(pair){
+      var box=$(pair[0]), arr=pair[1];
+      if(box.children.length!==arr.length){
+        box.innerHTML="";
+        arr.forEach(function(o,i){
+          var b=el("button","btn",o.v);
+          b.addEventListener("click",function(){
+            var onCount=arr.filter(function(x){ return x.on; }).length;
+            if(o.on && onCount===1){
+              setHint("p4phint","<b>값을 전부 끌 수는 없습니다.</b> parametrize에 빈 목록을 주면 테스트가 하나도 생기지 않습니다.","warn");
+              return;
+            }
+            o.on=!o.on; pRender();
+          });
+          box.appendChild(b);
+        });
+      }
+      for(var i=0;i<box.children.length;i++) box.children[i].setAttribute("aria-pressed", arr[i].on?"true":"false");
+    });
+    var a=A.filter(function(x){ return x.on; }), b=B.filter(function(x){ return x.on; });
+    $("p4code").innerHTML=
+      '<span class="lv">@pytest.mark.parametrize</span>("a, b, expected", [\n    '+
+      a.map(function(x){ return x.v; }).join(",\n    ")+'\n])\n'+
+      '<span class="lv">@pytest.mark.parametrize</span>("currency", ['+b.map(function(x){ return x.v; }).join(", ")+'])\n'+
+      '<span class="dim">def</span> test_add(a, b, expected, currency):\n    ...';
+    var ids=$("p4ids");
+    ids.innerHTML="";
+    b.forEach(function(cy){
+      a.forEach(function(av){
+        var nums=av.v.replace(/[()\s]/g,"").split(",");
+        ids.appendChild(el("span","pchip","test_add["+cy.v.replace(/"/g,"")+"-"+nums.join("-")+"]"));
+      });
+    });
+    setHint("p4phint","함수는 <b>1개</b>인데 실제로 만들어진 테스트는 <b>"+(a.length*b.length)+"개</b>입니다 "+
+      "("+a.length+" × "+b.length+").<br>데코레이터를 겹쳐 쓰면 <b>곱셈</b>이 됩니다. "+
+      "케이스를 늘리기는 쉽지만, 하나가 실패했을 때 대괄호 안의 ID로 어떤 조합이었는지 바로 알 수 있는 것이 더 큰 장점입니다.");
+  }
+  pRender();
+
+  /* mock */
+  var M={mode:"real"};
+  function mRender(run){
+    $("b4-real").setAttribute("aria-pressed", M.mode==="real"?"true":"false");
+    $("b4-mock").setAttribute("aria-pressed", M.mode==="mock"?"true":"false");
+    if(!run){
+      $("p4mterm").innerHTML='<span class="dim">실행 버튼을 눌러 결과를 확인하세요.</span>';
+      setHint("p4mhint","같은 테스트를 두 방식으로 돌려 보고, 무엇이 달라지는지 비교합니다.");
+      return;
+    }
+    if(M.mode==="real"){
+      $("p4mterm").innerHTML=
+        '<span class="dim">$ pytest test_payment.py</span>\n\n'+
+        '<span class="hi">→ 실제 결제 API 로 요청을 보냅니다</span>\n'+
+        '<span class="dim">  · 네트워크 2.4초 대기</span>\n'+
+        '<span class="dim">  · 테스트용 계정에 실제 결제 1건 생성됨</span>\n'+
+        '<span class="no">FAILED</span>  test_payment.py::test_pay  <span class="dim">(ConnectionTimeout)</span>\n\n'+
+        '<span class="no">1 failed in 2.41s</span>';
+      setHint("p4mhint","<b>테스트가 내 코드 때문이 아니라 남의 사정으로 실패했습니다.</b> "+
+        "느리고, 매번 결과가 다르고, 부작용까지 남깁니다. 이런 테스트는 곧 아무도 믿지 않게 됩니다.","bad");
+    } else {
+      $("p4mterm").innerHTML=
+        '<span class="dim">$ pytest test_payment.py</span>\n\n'+
+        '<span class="lv">→ mocker.patch("app.payment.charge")</span>\n'+
+        '<span class="dim">  · 네트워크 호출 없음 (0.01초)</span>\n'+
+        '<span class="dim">  · 반환값을 내가 정함: {"status": "ok"}</span>\n'+
+        '<span class="ok">PASSED</span>  test_payment.py::test_pay\n'+
+        '<span class="dim">  assert charge.call_count == 1</span>\n'+
+        '<span class="dim">  assert charge.call_args.kwargs["amount"] == 12000</span>\n\n'+
+        '<span class="ok">1 passed in 0.02s</span>';
+      setHint("p4mhint","mock은 <b>남의 코드를 대신 세워 두는 것</b>입니다. 덕분에 빠르고 결과가 항상 같습니다.<br>"+
+        "더 중요한 건 <b>어떻게 불렀는지 검증할 수 있다는 점</b>입니다 — 금액을 제대로 넘겼는지, 몇 번 불렀는지. "+
+        "다만 진짜 API가 바뀌면 이 테스트는 모릅니다. 그래서 통합 테스트를 따로 조금 남겨 둡니다.","good");
+    }
+  }
+  on("b4-real",function(){ M.mode="real"; mRender(false); });
+  on("b4-mock",function(){ M.mode="mock"; mRender(false); });
+  on("b4-mrun",function(){ mRender(true); });
+  mRender(false);
+}
+
+/* ════════ 5교시 ════════ */
+var P5CFG={pushMain:true, pushFeat:false, pr:true, tags:false, manual:false};
+/* k = 눌러서 고를 수 있는 줄, hk = 그 줄이 관여하는 트리거들.
+   구조를 나타내는 줄(push:, branches:)은 누를 수는 없지만 관련 트리거를 고르면 함께 켜진다. */
+var P5YAML=[
+  {t:"on:", hk:[], c:function(){ return true; }},
+  {t:"  push:", hk:["pushMain","pushFeat","tags"], c:function(){ return P5CFG.pushMain||P5CFG.pushFeat||P5CFG.tags; }},
+  {t:"    branches:", hk:["pushMain","pushFeat"], c:function(){ return P5CFG.pushMain||P5CFG.pushFeat; }},
+  {t:"      - main", k:"pushMain", hk:["pushMain"], c:function(){ return P5CFG.pushMain; }},
+  {t:"      - 'feature/**'", k:"pushFeat", hk:["pushFeat"], c:function(){ return P5CFG.pushFeat; }},
+  {t:"    tags:", hk:["tags"], c:function(){ return P5CFG.tags; }},
+  {t:"      - 'v*'", k:"tags", hk:["tags"], c:function(){ return P5CFG.tags; }},
+  {t:"  pull_request:", k:"pr", hk:["pr"], c:function(){ return P5CFG.pr; }},
+  {t:"    branches: [main]", hk:["pr"], c:function(){ return P5CFG.pr; }},
+  {t:"  workflow_dispatch:", k:"manual", hk:["manual"], c:function(){ return P5CFG.manual; }}
+];
+var P5EVENTS=[
+  {id:"pm", lab:"push → main", key:"pushMain", why:"branches 에 main 이 있으면"},
+  {id:"pf", lab:"push → feature/login", key:"pushFeat", why:"branches 에 feature/** 가 있으면"},
+  {id:"pr", lab:"pull_request 열림 (feature → main)", key:"pr", why:"pull_request 가 있으면"},
+  {id:"tg", lab:"tag v1.2.0 push", key:"tags", why:"tags 필터가 있으면"},
+  {id:"mn", lab:"Actions 탭에서 수동 실행", key:"manual", why:"workflow_dispatch 가 있으면"}
+];
+var P5HOT=null;
+function p5Render(){
+  var y=$("p5yaml");
+  y.innerHTML="";
+  P5YAML.forEach(function(L){
+    if(!L.c()) return;
+    var b;
+    if(L.k){
+      b=el("button","yline"); b.type="button";
+      b.setAttribute("data-k",L.k);
+      b.addEventListener("click",function(){ p5Hot(L.k); });
+      b.addEventListener("mouseenter",function(){ p5Hot(L.k); });
+    } else { b=el("div","yline"); }
+    b.setAttribute("data-hk",(L.hk||[]).join(","));
+    b.textContent=L.t;
+    y.appendChild(b);
+  });
+  if(!(P5CFG.pushMain||P5CFG.pushFeat||P5CFG.tags||P5CFG.pr||P5CFG.manual)){
+    var d=el("div","yline"); d.setAttribute("data-cm","1");
+    d.textContent="  # 아무 트리거도 없습니다 — 이 워크플로는 영원히 실행되지 않습니다";
+    y.appendChild(d);
+  }
+
+  var tg=$("p5toggles");
+  var defs=[["pushMain","push: main"],["pushFeat","push: feature/**"],["tags","tags: v*"],
+            ["pr","pull_request"],["manual","workflow_dispatch"]];
+  if(!tg.children.length){
+    defs.forEach(function(D){
+      var b=el("button","btn"); b.id="p5t-"+D[0]; b.textContent=D[1];
+      b.addEventListener("click",function(){ P5CFG[D[0]]=!P5CFG[D[0]]; p5Render(); });
+      tg.appendChild(b);
+    });
+  }
+  defs.forEach(function(D){ $("p5t-"+D[0]).setAttribute("aria-pressed", P5CFG[D[0]]?"true":"false"); });
+
+  var ev=$("p5events");
+  ev.innerHTML="";
+  var runs=0;
+  P5EVENTS.forEach(function(E){
+    var ok=!!P5CFG[E.key];
+    if(ok) runs++;
+    var b=el("button","evrow"); b.type="button";
+    b.setAttribute("data-st", ok?"run":"skip");
+    b.setAttribute("data-hot", (P5HOT && E.key===P5HOT)?"1":"0");
+    b.setAttribute("data-k",E.key);
+    var tag=el("span","tag "+(ok?"pass":"skip"), ok?"실행됨":"무시됨");
+    b.appendChild(tag);
+    b.appendChild(el("span","lb",E.lab));
+    b.appendChild(el("span","why", ok?E.why:"해당 설정이 없습니다"));
+    b.addEventListener("click",function(){ p5Hot(E.key); });
+    b.addEventListener("mouseenter",function(){ p5Hot(E.key); });
+    ev.appendChild(b);
+  });
+  p5Paint();
+  obs("p5obs","트리거 설정 "+defs.filter(function(D){ return P5CFG[D[0]]; }).length+"개 · 5개 사건 중 <b>"+runs+"개</b>가 워크플로를 깨웁니다");
+  if(runs===0){
+    setHint("p5hint","<b>어떤 사건에도 반응하지 않습니다.</b> 파일을 아무리 잘 써도 <span class=\"cmd\">on:</span> 이 비면 실행되지 않습니다. "+
+      "\"push했는데 Actions 탭이 비어 있어요\"의 첫 번째 원인입니다.","bad");
+  } else if(!P5CFG.pushMain && P5CFG.pr){
+    setHint("p5hint","PR에서는 돌지만 <b>main에 직접 push하면 안 돕니다.</b> "+
+      "PR을 거치도록 브랜치 보호 규칙을 함께 걸어 두면 이 구성도 안전합니다.","warn");
+  } else if(P5CFG.pushMain && P5CFG.pr){
+    setHint("p5hint","main push와 PR 양쪽에 반응합니다. 흔한 기본 구성입니다.<br>"+
+      "다만 PR 브랜치에 push하면 <b>같은 커밋에 두 번 실행</b>될 수 있습니다. "+
+      "<span class=\"cmd\">concurrency</span> 로 중복 실행을 정리할 수 있습니다.","good");
+  } else {
+    setHint("p5hint","왼쪽 설정과 오른쪽 사건이 어떻게 짝지어지는지 확인해 보세요. 양쪽 어디를 눌러도 상대가 표시됩니다.");
+  }
+}
+function p5Hot(k){ P5HOT=k; p5Paint(); }
+function p5Paint(){
+  var ys=$("p5yaml").querySelectorAll(".yline");
+  for(var i=0;i<ys.length;i++){
+    var hk=(ys[i].getAttribute("data-hk")||"").split(",");
+    var hit = !!P5HOT && hk.indexOf(P5HOT)>=0;
+    ys[i].setAttribute("data-hot", hit?"1":"0");
+  }
+  var es=$("p5events").querySelectorAll(".evrow");
+  for(var j=0;j<es.length;j++) es[j].setAttribute("data-hot",(P5HOT && es[j].getAttribute("data-k")===P5HOT)?"1":"0");
+}
+function p5Bind(){
+  p5Render();
+  var PY=[{v:"3.10",on:true},{v:"3.11",on:true},{v:"3.12",on:true}];
+  var OS=[{v:"ubuntu",on:true},{v:"windows",on:false},{v:"macos",on:false}];
+  var M={ff:true, ran:false};
+  function mRender(){
+    [["p5py",PY],["p5os",OS]].forEach(function(p){
+      var box=$(p[0]), arr=p[1];
+      if(box.children.length!==arr.length){
+        box.innerHTML="";
+        arr.forEach(function(o){
+          var b=el("button","btn",o.v);
+          b.addEventListener("click",function(){
+            var n=arr.filter(function(x){ return x.on; }).length;
+            if(o.on && n===1){
+              setHint("p5mhint","<b>한 축을 전부 끌 수는 없습니다.</b> matrix의 한 항목이 비면 조합이 0개가 되어 job이 하나도 생기지 않습니다.","warn");
+              return;
+            }
+            o.on=!o.on; M.ran=false; mRender();
+          });
+          box.appendChild(b);
+        });
+      }
+      for(var i=0;i<box.children.length;i++) box.children[i].setAttribute("aria-pressed", arr[i].on?"true":"false");
+    });
+    $("b5-ff").setAttribute("aria-pressed", M.ff?"true":"false");
+    $("b5-ff").textContent="fail-fast: "+(M.ff?"true":"false");
+
+    var py=PY.filter(function(x){ return x.on; }), os=OS.filter(function(x){ return x.on; });
+    var jobs=[];
+    os.forEach(function(o){ py.forEach(function(p){ jobs.push({name:"test ("+o.v+", py"+p.v+")", py:p.v}); }); });
+    var box=$("p5jobs");
+    box.innerHTML="";
+    var failIdx=-1;
+    if(M.ran){ for(var i=0;i<jobs.length;i++){ if(jobs[i].py==="3.11"){ failIdx=i; break; } } }
+    jobs.forEach(function(j,i){
+      var st="run";
+      if(M.ran){
+        if(failIdx>=0 && i===failIdx) st="fail";
+        else if(M.ff && failIdx>=0 && i>failIdx) st="cancel";
+        else st="pass";
+      } else st="idle";
+      var d=el("div","job", j.name+(st==="fail"?"  ✕":st==="cancel"?"  취소됨":st==="pass"?"  ✓":""));
+      if(st!=="idle") d.setAttribute("data-st",st);
+      box.appendChild(d);
+    });
+    var total=py.length*os.length;
+    var has311=py.some(function(p){ return p.v==="3.11"; });
+    $("b5-run").disabled=!has311;
+    var base="조합 <b>"+total+"개</b> = python "+py.length+" × os "+os.length+
+      " · 이 개수만큼 <b>동시에</b> 실행되고, 사용 시간도 그만큼 소모됩니다.";
+    if(!M.ran){
+      setHint("p5mhint", base + (has311?"":"<br>3.11을 켜야 실패 시나리오를 실행할 수 있습니다."));
+    } else if(M.ff){
+      var cancelled=jobs.length-failIdx-1;
+      setHint("p5mhint","<b>fail-fast: true</b> — 3.11이 실패하자 뒤의 "+cancelled+"개가 즉시 <b>취소</b>되었습니다.<br>"+
+        "시간과 비용은 아끼지만 <b>다른 조합도 실패했는지는 알 수 없게</b> 됩니다.","warn");
+    } else {
+      setHint("p5mhint","<b>fail-fast: false</b> — 실패해도 나머지가 끝까지 돕니다.<br>"+
+        "\"3.11에서만 깨지는가, 전부 깨지는가\"를 한 번에 알 수 있어 원인 범위를 좁히기 좋습니다. 대신 실행 시간을 다 씁니다.","good");
+    }
+  }
+  on("b5-ff",function(){ M.ff=!M.ff; mRender(); });
+  on("b5-run",function(){ M.ran=true; mRender(); });
+  on("b5-reset",function(){ M.ran=false; mRender(); });
+  mRender();
+}
+
+/* ════════ 6교시 ════════ */
+var P6={ev:"push-main", test:"pass", ap:"auto"};
+function p6Render(){
+  var jobs=[
+    {id:"lint", nm:"lint", need:null},
+    {id:"test", nm:"test (matrix 3개)", need:"lint"},
+    {id:"build", nm:"build — 이미지 생성", need:"test"},
+    {id:"deploy", nm:"deploy — production", need:"build"}
+  ];
+  var res={};
+  res.lint={st:"pass", why:"needs 없음 · 가장 먼저 실행됩니다."};
+  res.test = P6.test==="pass"
+    ? {st:"pass", why:"lint 성공 후 실행 · 전부 통과했습니다."}
+    : {st:"fail", why:"테스트가 실패했습니다. 여기서 파이프라인이 멈춥니다."};
+  res.build = P6.test==="pass"
+    ? {st:"pass", why:"test 성공 → needs 조건 충족."}
+    : {st:"skip", why:"needs: test 가 실패해서 <b>실행조차 되지 않습니다.</b> 실패가 아니라 건너뜀입니다."};
+  var isTag = (P6.ev==="tag");
+  if(P6.test!=="pass"){
+    res.deploy={st:"skip", why:"앞 단계가 이미 멈췄습니다. <b>검증을 통과하지 못한 코드는 배포로 갈 수 없습니다.</b>"};
+  } else if(!isTag){
+    res.deploy={st:"skip", why:"if 조건 불일치 · <span class=\"cmd\">startsWith(github.ref, 'refs/tags/')</span> 인데 지금 사건은 "+
+      (P6.ev==="push-main"?"main 브랜치 push":"pull_request")+" 입니다."};
+  } else if(P6.ap==="wait"){
+    res.deploy={st:"wait", why:"environment: production 에 승인자가 걸려 있어 <b>사람이 누르기 전까지 대기</b>합니다."};
+  } else {
+    res.deploy={st:"pass", why:"조건 통과 + 승인 완료 → 배포되었습니다."};
+  }
+
+  var box=$("p6dag");
+  box.innerHTML="";
+  jobs.forEach(function(J,i){
+    if(i>0){
+      var prev=res[jobs[i-1].id];
+      var dead=(prev.st!=="pass");
+      box.appendChild(el("div","daglink"+(dead?" dead":""),
+        dead ? "✕  needs: "+jobs[i-1].id+" 가 성공하지 않았습니다" : "▼  needs: "+jobs[i-1].id+" 성공"));
+    }
+    var r=res[J.id];
+    var d=el("div","dagjob");
+    d.setAttribute("data-st",r.st);
+    var h=el("div","dh");
+    h.appendChild(el("div","dn",J.nm));
+    var lab = r.st==="pass"?"성공":r.st==="fail"?"실패":r.st==="wait"?"승인 대기":"건너뜀";
+    h.appendChild(el("span","tag "+(r.st==="pass"?"pass":r.st==="fail"?"fail":r.st==="wait"?"wait":"skip"),lab));
+    d.appendChild(h);
+    var w=el("div","dw"); w.innerHTML=r.why; d.appendChild(w);
+    box.appendChild(d);
+  });
+
+  var msg;
+  if(P6.test!=="pass") msg="<b>1번 이유 — 앞 단계 실패.</b> needs로 이어진 job은 앞이 성공해야만 시작합니다. "+
+    "build와 deploy는 실패한 게 아니라 아예 시작되지 않았습니다. Actions 화면에서 회색으로 보이는 이유입니다.";
+  else if(!isTag) msg="<b>2번 이유 — if 조건 불일치.</b> 테스트는 다 통과했는데도 배포가 안 됩니다. "+
+    "태그를 붙였을 때만 배포하도록 막아 두었기 때문입니다. 사건을 <b>tag v1.2.0</b> 으로 바꿔 보세요.";
+  else if(P6.ap==="wait") msg="<b>3번 이유 — 승인 대기.</b> 기술적으로는 준비가 끝났고 사람의 판단만 남았습니다. "+
+    "운영 배포에 이 단계를 두면 자동화의 속도와 통제를 함께 가질 수 있습니다.";
+  else msg="<b>배포 완료.</b> 검증을 통과하고, 조건에 맞고, 승인까지 받은 것만 여기까지 옵니다. "+
+    "이 세 관문이 CD의 전부입니다.";
+  setHint("p6hint",msg, P6.test!=="pass"?"bad":(res.deploy.st==="pass"?"good":"warn"));
+  obs("p6obs","event=<b>"+P6.ev+"</b> · lint "+res.lint.st+" / test "+res.test.st+" / build "+res.build.st+
+    " / deploy <b>"+res.deploy.st+"</b>");
+}
+function p6Bind(){
+  fill("p6ev",[{v:"push-main",t:"push → main"},{v:"pr",t:"pull_request"},{v:"tag",t:"tag v1.2.0"}],"push-main");
+  fill("p6test",[{v:"pass",t:"통과"},{v:"fail",t:"실패"}],"pass");
+  fill("p6ap",[{v:"auto",t:"승인 불필요"},{v:"wait",t:"승인 대기"},{v:"done",t:"승인함"}],"auto");
+  $("p6ev").addEventListener("change",function(e){ P6.ev=e.target.value; p6Render(); });
+  $("p6test").addEventListener("change",function(e){ P6.test=e.target.value; p6Render(); });
+  $("p6ap").addEventListener("change",function(e){ P6.ap=e.target.value; p6Render(); });
+  p6Render();
+
+  var MODES=[
+    {k:"plain", lab:"코드에 직접 적기",
+     yaml:['  - name: Deploy','    run: deploy --key sk_live_9f3aB2xQ'],
+     term:['<span class="dim">$ deploy --key sk_live_9f3aB2xQ</span>','<span class="no">Deploying with key sk_live_9f3aB2xQ</span>'],
+     hint:"<b>키가 로그에 그대로 보입니다.</b> 더 나쁜 것은 <b>저장소 기록에 영원히 남는다는 점</b>입니다. "+
+          "나중에 지워도 이전 커밋에는 그대로 있어서, 유출되면 키를 폐기하는 수밖에 없습니다.", kind:"bad"},
+    {k:"secret", lab:"secrets 사용",
+     yaml:['  - name: Deploy','    run: deploy --key "$API_KEY"','    env:','      API_KEY: ${{ secrets.API_KEY }}'],
+     term:['<span class="dim">$ deploy --key "***"</span>','<span class="ok">Deploying with key ***</span>'],
+     hint:"값이 저장소 밖에 보관되고, <b>로그에 나타나면 자동으로 가려집니다.</b> "+
+          "권한도 저장소 단위로 관리할 수 있습니다. 기본은 언제나 이 방식입니다.", kind:"good"},
+    {k:"leak", lab:"secrets 인데 가공해서 출력",
+     yaml:['  - name: Deploy','    run: echo "$API_KEY" | base64','    env:','      API_KEY: ${{ secrets.API_KEY }}'],
+     term:['<span class="dim">$ echo "$API_KEY" | base64</span>','<span class="no">c2tfbGl2ZV85ZjNhQjJ4UQ==</span>','<span class="dim">→ 디코딩하면 원래 키가 그대로 나옵니다</span>'],
+     hint:"<b>마스킹은 값이 그대로 나올 때만 작동합니다.</b> 인코딩하거나 한 글자씩 나눠 찍으면 그대로 노출됩니다.<br>"+
+          "secrets는 실수를 줄여 주는 장치이지 <b>무엇을 출력해도 안전하게 만들어 주는 장치가 아닙니다.</b> "+
+          "가장 확실한 방법은 애초에 출력하지 않는 것입니다.", kind:"warn"}
+  ];
+  var S={k:"plain"};
+  function sRender(){
+    var box=$("p6smodes");
+    if(!box.children.length){
+      MODES.forEach(function(M){
+        var b=el("button","btn"); b.id="p6s-"+M.k; b.textContent=M.lab;
+        b.addEventListener("click",function(){ S.k=M.k; sRender(); });
+        box.appendChild(b);
+      });
+    }
+    MODES.forEach(function(M){ $("p6s-"+M.k).setAttribute("aria-pressed", S.k===M.k?"true":"false"); });
+    var cur=MODES.filter(function(M){ return M.k===S.k; })[0];
+    var y=$("p6syaml");
+    y.innerHTML="";
+    cur.yaml.forEach(function(t){ var d=el("div","yline"); d.textContent=t; y.appendChild(d); });
+    $("p6sterm").innerHTML='<span class="dim">Actions 실행 로그</span>\n'+cur.term.join("\n");
+    setHint("p6shint",cur.hint,cur.kind);
+  }
+  sRender();
+}
+
+/* ── 시작 ── */
+p1Render(); p1Bind();
+p2Bind();
+p3Render(); p3RunBind();
+p4Bind();
+p5Bind();
+p6Bind();
+go(0);
+</script>
+</body>
+</html>
